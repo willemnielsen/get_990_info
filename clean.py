@@ -1,5 +1,4 @@
 import copy
-
 import pandas as pd
 import os
 from lxml import etree
@@ -101,6 +100,30 @@ class Detail:
         self.value = None
 
 
+def details_to_csv(details, path):
+    detail_dicts = []
+    for detail in details:
+        detail_dict = vars(detail)
+        del detail_dict['value']
+        detail_dicts.append(detail_dict)
+    df = pd.DataFrame(detail_dicts)
+    df.to_csv(path)
+
+
+def details_from_csv(path):
+    df = pd.read_csv(path)
+    details_list = []
+    for idx, row in df.iterrows():
+        if '[' in row['tag']:
+            tags_string = row['tag'].translate({ord(c): None for c in "'[] "})
+            tags = list(tags_string.split(','))
+            det = Detail(row['name'], tags, row['is_multiline'])
+        else:
+            det = Detail(row['name'], row['tag'], row['is_multiline'])
+        details_list.append(det)
+    return details_list
+
+
 DETAILS = [Detail('Name', 'BusinessName', multiline=True),
            Detail('State', 'StateAbbreviationCd'),
            Detail('Mission Statement', 'ActivityOrMissionDesc'),
@@ -117,7 +140,8 @@ DETAILS = [Detail('Name', 'BusinessName', multiline=True),
            Detail('Total Fundraising Expenses', 'TotalProgramServiceExpensesAmt'),
            Detail('Total Expenses', 'TotalExpensesAmt'),
            Detail('Other Expenses', 'OtherExpensesTotalAmt'),
-           Detail('Tax Period Begin Date', 'TaxPeriodBeginDt')
+           Detail('Tax Period Begin Date', 'TaxPeriodBeginDt'),
+           Detail('Contributions', 'GiftsGrantsContriRcvd170Grp/n:TotalAmt')
            ]
 DIRECTORY = '/Users/erichegonzales/ECON_298/test_clean'
 NAMESPACES = {'n': 'http://www.irs.gov/efile'}
@@ -137,5 +161,6 @@ OUTPUT_PATH = '/Users/erichegonzales/ECON_298/2020_test_orgs.csv'
 
 
 if __name__ == '__main__':
-    orgs_pipeline = OrgsPipeline(DIRECTORY, DETAILS)
+    details = details_from_csv('/Users/erichegonzales/ECON_298/variables_used.csv')
+    orgs_pipeline = OrgsPipeline(DIRECTORY, details)
     orgs_pipeline.to_csv(OUTPUT_PATH)
