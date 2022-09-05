@@ -1,21 +1,27 @@
+import copy
+
 import pandas as pd
 import os
 from lxml import etree
+import logging
 
 
 class OrgsPipeline:
-    def __init__(self, directory, variables, throw_out_if_error=True):
+    def __init__(self, directory, details_to_get, throw_out_if_error=True):
         self.directory = directory
-        self.details = variables
+        self.details_to_get = details_to_get
         self.orgs = self._get_501c3_orgs(throw_out_if_error)
         self.df = self._get_orgs_df()
 
     def _get_501c3_orgs(self, throw_out_if_error):
         orgs = []
-        for idx, file in enumerate(os.listdir(self.directory)):
-            OrgsPipeline.load_animation(idx)
-            org = Org(file, self.details)
-            orgs.append(org)
+        files = enumerate(os.listdir(self.directory))
+        for idx, file in files:
+            OrgsPipeline._load_animation(idx)
+            org = Org(file, self.details_to_get)
+            if org.is_501c3:
+                org.set_detail_values()
+                orgs.append(org)
         return orgs
 
     def _get_orgs_df(self):
@@ -36,9 +42,9 @@ class OrgsPipeline:
         return pd.DataFrame.from_dict(dictionary, orient='index').reset_index().rename(columns={"index": "ein"})
 
     @staticmethod
-    def load_animation(idx):
+    def _load_animation(idx):
         if idx != 0 and idx % 1000 == 0:
-            return f'{idx} files processed'
+            logging.info(f'{idx} files processed')
 
 
 class Org:
@@ -47,26 +53,33 @@ class Org:
         self._root = self.get_root()
         self.ein = self._root.findtext(f'.//n:EIN', namespaces=NAMESPACES)
         self.is_501c3 = self._is_501c3()
-        self.details = details
-        self._set_detail_values()
+        self.details = copy.deepcopy(details)
 
     def get_root(self):
         with open(self.file) as f:
             return etree.parse(f).getroot()
 
-    def _set_detail_values(self):
+    def set_detail_values(self):
         for detail in self.details:
             detail.value = self._get_value_for(detail)
 
     def _get_value_for(self, detail):
         if detail.is_multiline:
             lines = self._root.find(f'.//n:{detail.tag}', namespaces=NAMESPACES)
-            text = ''.join([line.text for line in lines if line is not None])
+            value = ''.join([line.text for line in lines if line is not None])
         elif type(detail.tag) == str:
-            text = self._root.findtext(f'.//n:{detail.tag}', namespaces=NAMESPACES)
+            value = self._root.findtext(f'.//n:{detail.tag}', namespaces=NAMESPACES)
         else:
-            text = self._root.findtext(f'.//n:{detail.tag}', namespaces=NAMESPACES)
-        return text
+            value = self.get_value_for_detail_with_multiple_tags(detail)
+        return value
+
+    def get_value_for_detail_with_multiple_tags(self, detail):
+        value = None
+        idx = 0
+        while value is None and idx < len(detail.tag):
+            value = self._root.findtext(f'.//n:{detail.tag[idx]}', namespaces=NAMESPACES)
+            idx += 1
+        return value
 
     def details_to_dict(self):
         return {detail.name: detail.value for detail in self.details}
@@ -88,47 +101,27 @@ class Detail:
         self.value = None
 
 
-
-
-def save_orgs(path):
-    orgs = OrgsPipeline(path, details_to_extract)
-    orgs.df.to_csv('../2020_501c3_missionstatements.csv')
-
-
-
-class Get:
-    @staticmethod
-    def get_detail_from_990(root, tag_or_get):
-        if callable(tag_or_get):
-            return tag_or_get(root)
-        else:
-            return root.find(f'.//n:{tag_or_get}', namespaces=NAMESPACES).text
-
-    @staticmethod
-    def total_assets(root):
-        root.find(f'.//n:Form990TotalAssetsGrp/', namespaces=NAMESPACES)
-
-
+DETAILS = [Detail('Name', 'BusinessName', multiline=True),
+           Detail('State', 'StateAbbreviationCd'),
+           Detail('Mission Statement', 'ActivityOrMissionDesc'),
+           Detail('ZIP', 'ZIPCd'),
+           Detail('Primary Exempt Purpose', 'PrimaryExemptPurposeTxt'),
+           Detail('Description', 'ProgramSrvcAccomplishmentGrp/n:DescriptionProgramSrvcAccomTxt'),
+           Detail('Total Assets EOY', ['Form990TotalAssetsGrp/n:EOYAmt', 'TotalAssetsEOYAmt']),
+           Detail('Total Liabilities EOY', 'SumOfTotalLiabilitiesGrp/n:EOYAmt'),
+           Detail('Federated Campaigns', 'PoliticalCampaignActyInd'),
+           Detail('Program Service Revenue', 'ProgramServiceRevenueAmt'),
+           Detail('Other Revenue', 'OtherRevenueTotalAmt'),
+           Detail('Total Revenue', 'TotalRevenueAmt'),
+           Detail('Total Program Services Expenses', 'TotalProgramServiceExpensesAmt'),
+           Detail('Total Fundraising Expenses', 'TotalProgramServiceExpensesAmt'),
+           Detail('Total Expenses', 'TotalExpensesAmt'),
+           Detail('Other Expenses', 'OtherExpensesTotalAmt'),
+           Detail('Tax Period Begin Date', 'TaxPeriodBeginDt')
+           ]
+DIRECTORY = '/Users/erichegonzales/ECON_298/test_clean'
 NAMESPACES = {'n': 'http://www.irs.gov/efile'}
-
-details_to_extract = [Detail('Name', 'BusinessName', multiline=True),
-                      Detail('State', 'StateAbbreviationCd'),
-                      Detail('Mission Statement', 'ActivityOrMissionDesc'),
-                      Detail('ZIP', 'ZIPCd'),
-                      Detail('Total Assets EOY', 'Form990TotalAssetsGrp/EOYAmt'),
-                      # Detail('Total Liabilities EOY', 'SumOfTotalLiabilitiesGrp/EOYAmt'),
-                      # Detail('Federated Campaigns', 'PoliticalCampaignActyInd'),
-                      # Detail('Program Service Revenue', 'ProgramServiceRevenueAmt'),
-                      # Detail('Other Revenue', 'OtherRevenueTotalAmt'),
-                      # Detail('Total Revenue', 'TotalRevenueAmt'),
-                      # Detail('Total Program Services Expenses', 'TotalProgramServiceExpensesAmt'),
-                      # Detail('Total Fundraising Expenses', 'TotalProgramServiceExpensesAmt'),
-                      # Detail('Total Expenses', 'TotalExpensesAmt'),
-                      # Detail('Other Expenses', 'OtherExpensesTotalAmt'),
-                      # Detail('Tax Period Begin Date', 'TaxPeriodBeginDt' ),
-                      Detail('Tax Year', 'TaxYr')
-                      # Detail('Membership Dues', 'MembershipDuesAmt')
-                      ]
+OUTPUT_PATH = '/Users/erichegonzales/ECON_298/2020_test_orgs.csv'
 
 # charity name
 # state
@@ -144,5 +137,5 @@ details_to_extract = [Detail('Name', 'BusinessName', multiline=True),
 
 
 if __name__ == '__main__':
-    orgs_pipeline = OrgsPipeline('.', details_to_extract)
-    save_orgs('..')
+    orgs_pipeline = OrgsPipeline(DIRECTORY, DETAILS)
+    orgs_pipeline.to_csv(OUTPUT_PATH)
