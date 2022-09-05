@@ -11,10 +11,12 @@ class OrgsPipeline:
         self.df = self._get_orgs_df()
 
     def _get_501c3_orgs(self, throw_out_if_error):
+        orgs = []
         for idx, file in enumerate(os.listdir(self.directory)):
             OrgsPipeline.load_animation(idx)
             org = Org(file, self.details)
-            yield org
+            orgs.append(org)
+        return orgs
 
     def _get_orgs_df(self):
         orgs_dict = self._get_orgs_with_variables_dict()
@@ -25,6 +27,9 @@ class OrgsPipeline:
         for org in self.orgs:
             orgs_dict[org.ein] = org.details_to_dict()
         return orgs_dict
+
+    def to_csv(self, path):
+        self.df.to_csv(path)
 
     @staticmethod
     def get_dataframe_from_dict(dictionary):
@@ -38,24 +43,30 @@ class OrgsPipeline:
 
 class Org:
     def __init__(self, file, details, stop_if_error=True):
-        self._root = Org.get_root(file)
-        self.ein = self._root.find(f'.//n:EIN', namespaces=NAMESPACES).text
+        self.file = file
+        self._root = self.get_root()
+        self.ein = self._root.findtext(f'.//n:EIN', namespaces=NAMESPACES)
         self.is_501c3 = self._is_501c3()
-        self.details = self._set_detail_value_then_get_details(details)
+        self.details = details
+        self._set_detail_values()
 
+    def get_root(self):
+        with open(self.file) as f:
+            return etree.parse(f).getroot()
 
-    @staticmethod
-    def get_root(file):
-            with open(file) as f:
-                return etree.parse(f).getroot()
+    def _set_detail_values(self):
+        for detail in self.details:
+            detail.value = self._get_value_for(detail)
 
-    def _set_detail_value_then_get_details(self, details):
-        for detail in details:
-            detail.set_value(self._root)
-            yield detail
-
-
-
+    def _get_value_for(self, detail):
+        if detail.is_multiline:
+            lines = self._root.find(f'.//n:{detail.tag}', namespaces=NAMESPACES)
+            text = ''.join([line.text for line in lines if line is not None])
+        elif type(detail.tag) == str:
+            text = self._root.findtext(f'.//n:{detail.tag}', namespaces=NAMESPACES)
+        else:
+            text = self._root.findtext(f'.//n:{detail.tag}', namespaces=NAMESPACES)
+        return text
 
     def details_to_dict(self):
         return {detail.name: detail.value for detail in self.details}
@@ -63,35 +74,25 @@ class Org:
     def _is_501c3(self):
         tag = self._root.xpath(".//n:*[contains(local-name(), 'Organization501c3')]", namespaces=NAMESPACES)
         if tag is not None:
-            if tag[0].text == 'X':
-                return True
-        else:
-            return False
+            if len(tag) > 0:
+                if tag[0].text == 'X':
+                    return True
+        return False
 
 
 class Detail:
-    def __init__(self, name, tag=None, getter=None, multiline=False):
+    def __init__(self, name, tag, multiline=False):
         self.name = name
         self.tag = tag
-        self.getter = getter
         self.is_multiline = multiline
         self.value = None
 
-    def set_value(self, root):
-        try:
-            if self.is_multiline:
-                self.value = ''.join(
-                    [line.text for line in root.find(f'.//n:{self.tag}', namespaces=NAMESPACES)])
-            else:
-                self.value = root.find(f'.//n:{self.tag}', namespaces=NAMESPACES).text
-        except AttributeError:
-            pass
+
 
 
 def save_orgs(path):
     orgs = OrgsPipeline(path, details_to_extract)
     orgs.df.to_csv('../2020_501c3_missionstatements.csv')
-    orgs.df.to_pickle('../2020_501c3_missionstatements.pkl')
 
 
 
@@ -144,4 +145,4 @@ details_to_extract = [Detail('Name', 'BusinessName', multiline=True),
 
 if __name__ == '__main__':
     orgs_pipeline = OrgsPipeline('.', details_to_extract)
-    save_orgs('.')
+    save_orgs('..')
