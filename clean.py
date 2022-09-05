@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from lxml import etree
 import logging
-
+import time
 
 class OrgsPipeline:
     def __init__(self, directory, details_to_get, throw_out_if_error=True):
@@ -143,9 +143,11 @@ DETAILS = [Detail('Name', 'BusinessName', multiline=True),
            Detail('Tax Period Begin Date', 'TaxPeriodBeginDt'),
            Detail('Contributions', 'GiftsGrantsContriRcvd170Grp/n:TotalAmt')
            ]
-DIRECTORY = '/Users/erichegonzales/ECON_298/test_clean'
+DIRECTORY = '/Users/erichegonzales/ECON_298/download990xml_2020_1'
 NAMESPACES = {'n': 'http://www.irs.gov/efile'}
 OUTPUT_PATH = '/Users/erichegonzales/ECON_298/2020_test_orgs.csv'
+logging.basicConfig(level=logging.INFO)
+
 
 # charity name
 # state
@@ -162,5 +164,8 @@ OUTPUT_PATH = '/Users/erichegonzales/ECON_298/2020_test_orgs.csv'
 
 if __name__ == '__main__':
     details = details_from_csv('/Users/erichegonzales/ECON_298/variables_used.csv')
+    st = time.time()
     orgs_pipeline = OrgsPipeline(DIRECTORY, details)
     orgs_pipeline.to_csv(OUTPUT_PATH)
+    et = time.time()
+    print(f'Program finished in {et - st} seconds')
