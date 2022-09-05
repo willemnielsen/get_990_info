@@ -5,11 +5,10 @@ import logging
 
 
 class Variable:
-    def __init__(self, name, tag, multiline=False, other_tags=None):
+    def __init__(self, name, tag, multiline=False):
         self.name = name
         self.tag = tag
         self.is_multiline = multiline
-        self.other_tags = other_tags
 
 
 
@@ -21,7 +20,6 @@ def get_and_save_orgs_df(directory, variables, path):
         if is_501c3(root):
             ein = get_ein(root)
             orgs[ein] = get_vars(root, variables)
-
     df = get_df(orgs)
     df.to_csv(path)
 
