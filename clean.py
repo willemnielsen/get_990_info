@@ -99,6 +99,9 @@ class Detail:
         self.is_multiline = multiline
         self.value = None
 
+    def __repr__(self):
+        return f'{self.name}: {self.value}'
+
 
 def details_to_csv(details, path):
     detail_dicts = []
@@ -124,28 +127,9 @@ def details_from_csv(path):
     return details_list
 
 
-DETAILS = [Detail('Name', 'BusinessName', multiline=True),
-           Detail('State', 'StateAbbreviationCd'),
-           Detail('Mission Statement', 'ActivityOrMissionDesc'),
-           Detail('ZIP', 'ZIPCd'),
-           Detail('Primary Exempt Purpose', 'PrimaryExemptPurposeTxt'),
-           Detail('Description', 'ProgramSrvcAccomplishmentGrp/n:DescriptionProgramSrvcAccomTxt'),
-           Detail('Total Assets EOY', ['Form990TotalAssetsGrp/n:EOYAmt', 'TotalAssetsEOYAmt']),
-           Detail('Total Liabilities EOY', 'SumOfTotalLiabilitiesGrp/n:EOYAmt'),
-           Detail('Federated Campaigns', 'PoliticalCampaignActyInd'),
-           Detail('Program Service Revenue', 'ProgramServiceRevenueAmt'),
-           Detail('Other Revenue', 'OtherRevenueTotalAmt'),
-           Detail('Total Revenue', 'TotalRevenueAmt'),
-           Detail('Total Program Services Expenses', 'TotalProgramServiceExpensesAmt'),
-           Detail('Total Fundraising Expenses', 'TotalProgramServiceExpensesAmt'),
-           Detail('Total Expenses', 'TotalExpensesAmt'),
-           Detail('Other Expenses', 'OtherExpensesTotalAmt'),
-           Detail('Tax Period Begin Date', 'TaxPeriodBeginDt'),
-           Detail('Contributions', 'GiftsGrantsContriRcvd170Grp/n:TotalAmt')
-           ]
-DIRECTORY = '/Users/erichegonzales/ECON_298/download990xml_2020_1'
+DIRECTORY = '/Users/erichegonzales/ECON_298/download990xml_2020_2'
 NAMESPACES = {'n': 'http://www.irs.gov/efile'}
-OUTPUT_PATH = '/Users/erichegonzales/ECON_298/2020_test_orgs.csv'
+OUTPUT_PATH = '/Users/erichegonzales/ECON_298/2020_2.csv'
 logging.basicConfig(level=logging.INFO)
 
 
@@ -163,7 +147,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 if __name__ == '__main__':
-    details = details_from_csv('/Users/erichegonzales/ECON_298/variables_used.csv')
+    details = details_from_csv('/Users/erichegonzales/ECON_298/input_variables.csv')
     st = time.time()
     orgs_pipeline = OrgsPipeline(DIRECTORY, details)
     orgs_pipeline.to_csv(OUTPUT_PATH)
