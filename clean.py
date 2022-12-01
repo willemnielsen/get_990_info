@@ -130,26 +130,15 @@ def details_from_csv(path):
 DIRECTORY = '/Users/erichegonzales/ECON_298/download990xml_2020_2'
 NAMESPACES = {'n': 'http://www.irs.gov/efile'}
 OUTPUT_PATH = '/Users/erichegonzales/ECON_298/2020_2.csv'
+VARIABLES_PATH = '/Users/erichegonzales/ECON_298/input_variables.csv'
 logging.basicConfig(level=logging.INFO)
 
 
-# charity name
-# state
-# ein
-# missions statement
-# taxyear (year the taxes were being paid for)
-# taxmonth (month the taxes were being paid in)
-# zip code
-# total assets
-# total contributions
-# ntee code
-# year of formation
-
-
 if __name__ == '__main__':
-    details = details_from_csv('/Users/erichegonzales/ECON_298/input_variables.csv')
+    details = details_from_csv(VARIABLES_PATH)
     st = time.time()
     orgs_pipeline = OrgsPipeline(DIRECTORY, details)
     orgs_pipeline.to_csv(OUTPUT_PATH)
     et = time.time()
     print(f'Program finished in {et - st} seconds')
+
